@@ -948,7 +948,7 @@ const NaturalDyeJournal = () => {
       <header className="bg-gradient-to-r from-amber-800 to-orange-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <img src="public/logo_dyary.png" alt="DYARY" className="h-8" />
+            <img src="/public/logo_dyary.png" alt="DYARY" className="h-8" />
             <button
               onClick={() => setShowAddForm(true)}
               className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium transition-colors"
