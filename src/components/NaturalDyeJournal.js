@@ -1,16 +1,71 @@
-import React, { useState } from 'react';
-import { Search, Plus, Clock, Droplets, AlertTriangle, Filter, Palette, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Search, Clock, Droplets, AlertTriangle, Filter, Edit3, Save, Download } from 'lucide-react';
+
+// Separate Notes Component to prevent re-rendering issues
+const NotesSection = ({ recipe, savedNotes, onSaveNotes, onDownloadPDF }) => {
+  const [localNotes, setLocalNotes] = useState(savedNotes[recipe.id] || '');
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [lastRecipeId, setLastRecipeId] = useState(recipe.id);
+
+  // Only update local notes when switching to a different recipe
+  React.useEffect(() => {
+    if (recipe.id !== lastRecipeId) {
+      setLocalNotes(savedNotes[recipe.id] || '');
+      setLastRecipeId(recipe.id);
+    }
+  }, [recipe.id, savedNotes, lastRecipeId]);
+
+  const handleNotesChange = (e) => {
+    setLocalNotes(e.target.value);
+  };
+
+  const handleSaveNotes = () => {
+    onSaveNotes(recipe.id, localNotes);
+    setSaveStatus('saved');
+    setTimeout(() => setSaveStatus(null), 2000);
+  };
+
+  return (
+    <div className="mt-6 bg-blue-50 p-4 rounded-lg">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
+          <Edit3 className="w-5 h-5" />
+          My Notes
+        </h2>
+        <button
+          onClick={handleSaveNotes}
+          className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+            saveStatus === 'saved'
+              ? 'bg-green-600 text-white'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          <Save className="w-4 h-4" />
+          {saveStatus === 'saved' ? 'Saved!' : 'Save Notes'}
+        </button>
+      </div>
+      <textarea
+        value={localNotes}
+        onChange={handleNotesChange}
+        placeholder="Add your personal notes, modifications, results, or observations about this recipe..."
+        className="w-full p-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical min-h-[100px]"
+        rows="4"
+      />
+      <p className="text-blue-600 text-sm mt-2">
+        Save your notes, then download the PDF to include them in the recipe.
+      </p>
+    </div>
+  );
+};
 
 const NaturalDyeJournal = () => {
-  const [activeView, setActiveView] = useState('home');
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [colorSearch, setColorSearch] = useState('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [savedNotes, setSavedNotes] = useState({});
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  // Sample recipes with Indian ingredients
+  // Complete collection of 12 natural dye recipes
   const sampleRecipes = [
     {
       id: 1,
@@ -52,7 +107,7 @@ const NaturalDyeJournal = () => {
       difficulty: 'Intermediate',
       time: '4-6 hours',
       pH: '6-7',
-      colorHex: '#B22222',
+      colorHex: '#8B2635',
       description: 'Rich crimson red from Indian madder (Rubia cordifolia)',
       materials: [
         { item: 'Dried Indian madder root', amount: '100g' },
@@ -152,36 +207,36 @@ const NaturalDyeJournal = () => {
     {
       id: 5,
       name: 'Indian Gum Arabic Brown',
-      category: 'other',
+      category: 'bark',
       difficulty: 'Intermediate',
       time: '3-4 hours',
       pH: '5-6',
       colorHex: '#8B4513',
       description: 'Rich brown from babul ki chal (Acacia arabica bark)',
       materials: [
-        { item: 'Dried babul bark', amount: '250g' },
-        { item: 'Iron sulphate', amount: '10g' },
-        { item: 'Cotton fabric', amount: '100g' },
-        { item: 'Alum mordant', amount: '15g' },
-        { item: 'Water', amount: '4L' }
+        { item: 'Dried acacia arabica bark', amount: '300g' },
+        { item: 'Cotton fabric', amount: '150g' },
+        { item: 'Iron sulfate', amount: '10g' },
+        { item: 'Alum mordant', amount: '25g' },
+        { item: 'Water', amount: '6L' }
       ],
       instructions: [
-        'Soak dried bark in water overnight',
-        'Boil bark for 2 hours to extract tannins',
+        'Soak bark pieces in water for 4 hours',
+        'Boil bark solution for 2 hours',
         'Strain and cool liquid to 70°C',
         'Add pre-mordanted fabric',
-        'Dye for 1 hour at constant temperature',
-        'Add iron sulphate gradually for darker brown',
-        'Rinse thoroughly in clean water'
+        'Simmer for 1 hour',
+        'Add iron sulfate for darker brown',
+        'Rinse thoroughly when cool'
       ],
       safetyNotes: [
-        'Iron sulphate is corrosive - handle with care',
-        'Wear gloves when handling iron mordant',
-        'Use well-ventilated area'
+        'Iron sulfate is toxic - handle with care',
+        'Wear gloves when handling bark',
+        'Work in ventilated area'
       ],
       tips: [
-        'Without iron, produces tan color',
-        'Copper sulphate gives olive-brown'
+        'Longer boiling extracts more tannins',
+        'Add iron gradually to control color depth'
       ]
     },
     {
@@ -195,27 +250,26 @@ const NaturalDyeJournal = () => {
       description: 'Deep reddish brown from katha (Acacia catechu extract)',
       materials: [
         { item: 'Cutch/Katha extract', amount: '50g' },
-        { item: 'Cotton fabric', amount: '100g' },
-        { item: 'Chrome mordant', amount: '12g' },
-        { item: 'Hot water', amount: '3L' }
+        { item: 'Cotton yarn', amount: '100g' },
+        { item: 'Alum mordant', amount: '15g' },
+        { item: 'Water', amount: '3L' }
       ],
       instructions: [
-        'Dissolve cutch extract in hot water',
-        'Heat solution to 85°C',
-        'Add pre-mordanted wet fabric',
+        'Dissolve cutch extract in warm water',
+        'Heat solution to 80°C',
+        'Add pre-mordanted wet yarn',
         'Maintain temperature for 45 minutes',
-        'Stir occasionally for even dyeing',
+        'Stir gently every 10 minutes',
         'Remove and rinse in cool water',
         'Air dry in shade'
       ],
       safetyNotes: [
-        'Chrome mordant is toxic - handle carefully',
-        'Work in ventilated area',
-        'Dispose of chrome solutions properly'
+        'Cutch can cause skin staining',
+        'Use non-reactive vessels only'
       ],
       tips: [
-        'Iron deepens to dark chocolate brown',
-        'Alum mordant gives lighter brown'
+        'Iron modifier deepens to dark brown',
+        'Copper gives greenish cast'
       ]
     },
     {
@@ -229,28 +283,26 @@ const NaturalDyeJournal = () => {
       description: 'Bright orange-yellow from genda flowers (Tagetes patula)',
       materials: [
         { item: 'Fresh marigold petals', amount: '500g' },
-        { item: 'Wool yarn', amount: '100g' },
-        { item: 'Alum mordant', amount: '20g' },
+        { item: 'Silk scarf', amount: '50g' },
+        { item: 'Alum mordant', amount: '10g' },
         { item: 'Cream of tartar', amount: '5g' },
-        { item: 'Water', amount: '3L' }
+        { item: 'Water', amount: '2L' }
       ],
       instructions: [
-        'Extract petals from fresh marigold flowers',
-        'Boil petals in water for 30 minutes',
-        'Strain liquid and heat to 80°C',
-        'Add pre-mordanted wet wool',
-        'Maintain temperature for 30 minutes',
-        'Remove and rinse gently',
-        'Dry away from direct sunlight'
+        'Crush fresh marigold petals',
+        'Steep in hot water (80°C) for 30 minutes',
+        'Strain and reheat liquid to 70°C',
+        'Add pre-mordanted silk',
+        'Maintain heat for 30 minutes',
+        'Remove and rinse gently'
       ],
       safetyNotes: [
-        'Some people may be allergic to marigold',
-        'Test on small fabric piece first',
-        'Use fresh flowers for best results'
+        'Fresh flowers may cause allergic reactions',
+        'Test on skin before handling large quantities'
       ],
       tips: [
-        'Iron modifier shifts to olive gold',
-        'Copper gives greenish-yellow'
+        'Use freshly picked flowers for best color',
+        'Iron modifier shifts to golden brown'
       ]
     },
     {
@@ -260,32 +312,32 @@ const NaturalDyeJournal = () => {
       difficulty: 'Intermediate',
       time: '5-6 hours',
       pH: '4-5',
-      colorHex: '#800020',
+      colorHex: '#722F37',
       description: 'Deep burgundy from palash bark (Butea monosperma)',
       materials: [
-        { item: 'Dried palash bark', amount: '200g' },
-        { item: 'Silk fabric', amount: '100g' },
-        { item: 'Alum mordant', amount: '18g' },
-        { item: 'Iron sulphate', amount: '8g' },
-        { item: 'Water', amount: '4L' }
+        { item: 'Dried palash bark', amount: '400g' },
+        { item: 'Wool fabric', amount: '200g' },
+        { item: 'Alum mordant', amount: '30g' },
+        { item: 'Copper sulfate', amount: '5g' },
+        { item: 'Water', amount: '8L' }
       ],
       instructions: [
-        'Soak bark in water for 24 hours',
-        'Boil soaked bark for 3 hours',
-        'Strain and concentrate liquid by half',
-        'Cool to 70°C and add mordanted silk',
-        'Dye for 1 hour stirring gently',
-        'Add iron solution for burgundy depth',
-        'Cool gradually and rinse'
+        'Soak bark overnight in water',
+        'Boil bark for 3 hours',
+        'Strain liquid and cool to 60°C',
+        'Add pre-mordanted wool',
+        'Heat slowly to 85°C over 1 hour',
+        'Add copper sulfate for burgundy shade',
+        'Cool slowly and rinse thoroughly'
       ],
       safetyNotes: [
-        'Long boiling required - ensure good ventilation',
-        'Iron can make fabric brittle - use sparingly',
-        'Handle hot concentrated dye carefully'
+        'Copper sulfate is toxic - use minimal amounts',
+        'Wear protective equipment',
+        'Dispose of bath water responsibly'
       ],
       tips: [
-        'Without iron gives reddish-orange',
-        'Copper modifier produces wine red'
+        'Longer extraction gives deeper colors',
+        'Iron modifier creates nearly black'
       ]
     },
     {
@@ -295,34 +347,34 @@ const NaturalDyeJournal = () => {
       difficulty: 'Advanced',
       time: '6-8 hours',
       pH: '3-4',
-      colorHex: '#DC143C',
+      colorHex: '#C21807',
       description: 'Brilliant red from sappanwood (Caesalpinia sappan)',
       materials: [
-        { item: 'Dried sappanwood chips', amount: '150g' },
-        { item: 'Wool yarn', amount: '100g' },
+        { item: 'Sappanwood chips', amount: '200g' },
+        { item: 'Silk yarn', amount: '100g' },
         { item: 'Alum mordant', amount: '20g' },
         { item: 'Cream of tartar', amount: '10g' },
-        { item: 'White vinegar', amount: '100ml' },
+        { item: 'Citric acid', amount: '5g' },
         { item: 'Water', amount: '5L' }
       ],
       instructions: [
-        'Soak wood chips in water with vinegar for 48 hours',
-        'Heat slowly to extract red dye - do not boil',
-        'Maintain at 80°C for 3 hours',
-        'Strain liquid and cool to 60°C',
-        'Add pre-mordanted wool carefully',
-        'Heat gradually to 85°C over 45 minutes',
-        'Hold temperature for 1 hour',
-        'Cool slowly and rinse in acidic water'
+        'Soak sappanwood chips for 24 hours',
+        'Heat slowly to 80°C - do not boil',
+        'Maintain temperature for 2 hours',
+        'Strain and add citric acid',
+        'Cool to 60°C and add silk',
+        'Heat gradually to 75°C',
+        'Hold for 1 hour, cool slowly',
+        'Rinse in acidulated water'
       ],
       safetyNotes: [
-        'Never boil - destroys red pigment',
-        'Acidic solution can irritate skin',
+        'Never boil sappanwood - destroys red compounds',
+        'Handle citric acid with care',
         'Work in well-ventilated area'
       ],
       tips: [
-        'Alkaline water shifts to purple-red',
-        'Iron turns color to deep wine'
+        'pH control is critical for color development',
+        'Alkaline conditions shift to purple'
       ]
     },
     {
@@ -330,34 +382,33 @@ const NaturalDyeJournal = () => {
       name: 'Henna Orange-Brown',
       category: 'leaves',
       difficulty: 'Beginner',
-      time: '4-5 hours',
+      time: '2-3 hours',
       pH: '5-6',
       colorHex: '#CD853F',
-      description: 'Orange-brown from mehendi leaves (Lawsonia inermis)',
+      description: 'Warm orange-brown from henna leaves (Lawsonia inermis)',
       materials: [
-        { item: 'Dried henna leaves powder', amount: '100g' },
-        { item: 'Cotton fabric', amount: '100g' },
-        { item: 'Iron sulphate', amount: '15g' },
-        { item: 'Hot water', amount: '3L' }
+        { item: 'Dried henna powder', amount: '100g' },
+        { item: 'Cotton fabric', amount: '150g' },
+        { item: 'Alum mordant', amount: '20g' },
+        { item: 'Iron sulfate', amount: '8g' },
+        { item: 'Water', amount: '4L' }
       ],
       instructions: [
-        'Mix henna powder with hot water to make paste',
-        'Let mixture stand for 2 hours to release dye',
-        'Add more hot water to create dye bath',
-        'Heat to 90°C and add wet fabric',
-        'Maintain temperature for 1 hour',
-        'Add iron sulphate for deeper color',
-        'Continue dyeing for 30 minutes',
-        'Rinse thoroughly and air dry'
+        'Make paste with henna powder and warm water',
+        'Let paste develop for 2 hours',
+        'Dilute with hot water and strain',
+        'Heat solution to 80°C',
+        'Add pre-mordanted fabric',
+        'Simmer for 45 minutes',
+        'Add iron sulfate for darker shade'
       ],
       safetyNotes: [
-        'Henna permanently stains skin and nails',
-        'Wear protective gloves',
-        'Iron solution can irritate skin'
+        'Pure henna is safe but check for adulterants',
+        'Iron sulfate requires careful handling'
       ],
       tips: [
-        'Without iron gives orange color',
-        'Copper produces olive-brown'
+        'Fresh henna powder gives better results',
+        'Longer steeping intensifies color'
       ]
     },
     {
@@ -365,36 +416,35 @@ const NaturalDyeJournal = () => {
       name: 'Ratanjot Purple',
       category: 'roots',
       difficulty: 'Advanced',
-      time: '6-8 hours',
+      time: '4-6 hours',
       pH: '8-9',
       colorHex: '#663399',
-      description: 'Royal purple from ratanjot root (Alkanna tinctoria)',
+      description: 'Vibrant purple from ratanjot root (Alkanna tinctoria)',
       materials: [
-        { item: 'Dried ratanjot root', amount: '80g' },
-        { item: 'Silk fabric', amount: '100g' },
-        { item: 'Alum mordant', amount: '20g' },
-        { item: 'Washing soda', amount: '10g' },
-        { item: 'Coconut oil', amount: '50ml' },
+        { item: 'Dried ratanjot root', amount: '150g' },
+        { item: 'Wool yarn', amount: '100g' },
+        { item: 'Alum mordant', amount: '15g' },
+        { item: 'Sodium carbonate', amount: '10g' },
+        { item: 'Olive oil', amount: '30ml' },
         { item: 'Water', amount: '4L' }
       ],
       instructions: [
-        'Infuse crushed ratanjot in warm coconut oil overnight',
-        'Strain oil and heat gently with alkaline water',
-        'Create emulsion by stirring vigorously',
-        'Add pre-mordanted silk to cool bath',
-        'Heat very slowly to 70°C over 2 hours',
-        'Maintain gentle heat for 2 more hours',
-        'Cool gradually and rinse carefully',
-        'Final rinse in slightly acidic water'
+        'Extract color by soaking root in oil for 24 hours',
+        'Heat oil gently to 60°C for 2 hours',
+        'Strain oil extract and emulsify in water',
+        'Add sodium carbonate to raise pH',
+        'Add pre-mordanted wool at 70°C',
+        'Maintain temperature for 1 hour',
+        'Rinse carefully to remove oil residue'
       ],
       safetyNotes: [
-        'Oil-based dye requires careful handling',
-        'Work in well-ventilated area',
-        'Alkaline solutions can burn skin'
+        'Oil extraction requires careful temperature control',
+        'Ratanjot may cause skin sensitization',
+        'Ensure good ventilation when heating oil'
       ],
       tips: [
-        'Acidic rinse brightens purple',
-        'Iron shifts to deep violet'
+        'Oil extraction gives more vibrant purples',
+        'pH adjustment is crucial for color development'
       ]
     },
     {
@@ -402,54 +452,39 @@ const NaturalDyeJournal = () => {
       name: 'Kitewood Yellow-Green',
       category: 'bark',
       difficulty: 'Intermediate',
-      time: '4-5 hours',
-      pH: '7-8',
+      time: '3-4 hours',
+      pH: '6-7',
       colorHex: '#9ACD32',
-      description: 'Yellow-green from kite wood bark shavings',
+      description: 'Fresh yellow-green from kitewood bark and leaves',
       materials: [
         { item: 'Fresh kitewood bark', amount: '300g' },
-        { item: 'Cotton fabric', amount: '100g' },
-        { item: 'Copper sulphate', amount: '8g' },
-        { item: 'Alum mordant', amount: '15g' },
-        { item: 'Water', amount: '4L' }
+        { item: 'Cotton fabric', amount: '150g' },
+        { item: 'Alum mordant', amount: '25g' },
+        { item: 'Copper sulfate', amount: '3g' },
+        { item: 'Water', amount: '5L' }
       ],
       instructions: [
-        'Scrape fresh bark and soak in water overnight',
-        'Boil bark for 2 hours to extract yellow dye',
-        'Strain liquid and heat to 85°C',
-        'Add pre-mordanted cotton fabric',
-        'Dye for 45 minutes with regular stirring',
-        'Add copper sulphate solution gradually',
-        'Continue dyeing for 30 minutes',
-        'Remove and rinse thoroughly'
+        'Chop fresh bark and leaves finely',
+        'Boil in water for 1.5 hours',
+        'Strain liquid and cool to 70°C',
+        'Add pre-mordanted fabric',
+        'Maintain temperature for 45 minutes',
+        'Add copper sulfate for green shift',
+        'Rinse thoroughly when cool'
       ],
       safetyNotes: [
-        'Copper sulphate is toxic - handle with care',
-        'Wear gloves when adding copper solution',
-        'Dispose of copper solutions responsibly'
+        'Fresh bark may cause skin irritation',
+        'Use minimal copper sulfate',
+        'Wear gloves when handling materials'
       ],
       tips: [
-        'Without copper gives bright yellow',
-        'Iron modifier produces olive green'
+        'Fresh materials give brightest colors',
+        'Iron modifier shifts to olive green'
       ]
     }
   ];
 
   const [recipes, setRecipes] = useState(sampleRecipes);
-  
-  const [newRecipe, setNewRecipe] = useState({
-    name: '',
-    category: 'roots',
-    difficulty: 'Beginner',
-    time: '',
-    pH: '',
-    colorHex: '#F4A623',
-    description: '',
-    materials: [{ item: '', amount: '' }],
-    instructions: [''],
-    safetyNotes: [''],
-    tips: ['']
-  });
 
   const categories = [
     { id: 'all', label: 'All Categories' },
@@ -457,19 +492,7 @@ const NaturalDyeJournal = () => {
     { id: 'leaves', label: 'Leaves & Stems' },
     { id: 'bark', label: 'Bark & Wood' },
     { id: 'fruit', label: 'Fruits & Berries' },
-    { id: 'flowers', label: 'Flowers & Petals' },
-    { id: 'other', label: 'Other Sources' }
-  ];
-
-  const colorPalette = [
-    { name: 'Red', hex: '#FF0000' },
-    { name: 'Orange', hex: '#FFA500' },
-    { name: 'Yellow', hex: '#FFFF00' },
-    { name: 'Green', hex: '#008000' },
-    { name: 'Blue', hex: '#0000FF' },
-    { name: 'Purple', hex: '#800080' },
-    { name: 'Brown', hex: '#8B4513' },
-    { name: 'Black', hex: '#000000' }
+    { id: 'flowers', label: 'Flowers & Petals' }
   ];
 
   const difficultyColors = {
@@ -478,119 +501,431 @@ const NaturalDyeJournal = () => {
     'Advanced': 'bg-red-100 text-red-800'
   };
 
-  const isColorSimilar = (color1, color2, threshold = 60) => {
-    const hex1 = color1.replace('#', '');
-    const hex2 = color2.replace('#', '');
-    
-    const r1 = parseInt(hex1.substr(0, 2), 16);
-    const g1 = parseInt(hex1.substr(2, 2), 16);
-    const b1 = parseInt(hex1.substr(4, 2), 16);
-    
-    const r2 = parseInt(hex2.substr(0, 2), 16);
-    const g2 = parseInt(hex2.substr(2, 2), 16);
-    const b2 = parseInt(hex2.substr(4, 2), 16);
-    
-    const distance = Math.sqrt(
-      Math.pow(r1 - r2, 2) + 
-      Math.pow(g1 - g2, 2) + 
-      Math.pow(b1 - b2, 2)
-    );
-    
-    return distance <= threshold;
-  };
-
   const filteredRecipes = recipes.filter(recipe => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || recipe.category === filterCategory;
-    const matchesColor = !colorSearch || isColorSimilar(recipe.colorHex, colorSearch);
     
-    return matchesSearch && matchesCategory && matchesColor;
+    return matchesSearch && matchesCategory;
   });
 
-  const addMaterial = () => {
-    setNewRecipe(prev => ({
+  const handleSaveNotes = useCallback((recipeId, notes) => {
+    setSavedNotes(prev => ({
       ...prev,
-      materials: [...prev.materials, { item: '', amount: '' }]
+      [recipeId]: notes
     }));
-  };
+  }, []);
 
-  const removeMaterial = (index) => {
-    setNewRecipe(prev => ({
-      ...prev,
-      materials: prev.materials.filter((_, i) => i !== index)
-    }));
-  };
+  const downloadPDF = async (recipe) => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const notes = savedNotes[recipe.id] || '';
+      
+      // Create HTML content for the PDF
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${recipe.name} - Natural Dye Recipe</title>
+    <style>
+        @page {
+            margin: 1in;
+            size: A4;
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6; 
+            color: #2c3e50;
+            font-size: 12px;
+        }
+        .header { 
+            border-bottom: 4px solid ${recipe.colorHex}; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+            text-align: center;
+        }
+        .title { 
+            color: #8b4513; 
+            font-size: 28px; 
+            font-weight: bold; 
+            margin-bottom: 10px; 
+        }
+        .subtitle {
+            color: #cd853f;
+            font-size: 14px;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        .description { 
+            color: #a0522d; 
+            font-size: 16px;
+            margin-bottom: 20px; 
+            text-align: center;
+        }
+        .info-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 15px; 
+            margin-bottom: 30px; 
+        }
+        .info-card { 
+            background: #fef7e7; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid ${recipe.colorHex};
+            text-align: center;
+        }
+        .info-title { 
+            font-weight: bold; 
+            color: #8b4513; 
+            margin-bottom: 8px; 
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .info-value {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .section { 
+            margin-bottom: 30px; 
+            page-break-inside: avoid;
+        }
+        .section-title { 
+            color: #8b4513; 
+            font-size: 18px; 
+            font-weight: bold; 
+            border-bottom: 2px solid ${recipe.colorHex}; 
+            padding-bottom: 8px; 
+            margin-bottom: 15px; 
+            display: flex;
+            align-items: center;
+        }
+        .section-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .materials-grid { 
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .materials-column {
+            background: #fef7e7; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid ${recipe.colorHex};
+        }
+        .material-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            padding: 8px 0; 
+            border-bottom: 1px solid #e6d3a3;
+        }
+        .material-item:last-child {
+            border-bottom: none;
+        }
+        .material-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .material-amount {
+            font-weight: bold;
+            color: #8b4513;
+            background: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .instructions { 
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid ${recipe.colorHex};
+        }
+        .instructions ol { 
+            padding-left: 0;
+            counter-reset: step-counter;
+        }
+        .instructions li { 
+            margin-bottom: 15px; 
+            line-height: 1.8;
+            position: relative;
+            padding-left: 40px;
+            counter-increment: step-counter;
+        }
+        .instructions li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: ${recipe.colorHex};
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .safety { 
+            background: #fef2f2; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #dc2626; 
+            margin-bottom: 20px;
+        }
+        .tips { 
+            background: #f0fdf4; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #16a34a; 
+        }
+        .notes { 
+            background: #eff6ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #2563eb; 
+            margin-top: 20px;
+        }
+        .color-swatch { 
+            display: inline-block; 
+            width: 30px; 
+            height: 30px; 
+            border-radius: 50%; 
+            margin-right: 10px; 
+            vertical-align: middle; 
+            border: 3px solid #8b4513;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .warning-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .warning-icon {
+            color: #dc2626;
+            margin-right: 8px;
+            margin-top: 2px;
+        }
+        .tip-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .tip-icon {
+            color: #16a34a;
+            margin-right: 8px;
+            margin-top: 2px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 10px;
+            border-top: 2px solid #e5e7eb;
+            padding-top: 20px;
+        }
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .notes-content {
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">${recipe.name}</div>
+        <div class="subtitle">Natural Dye Recipe Collection</div>
+        <div class="description">${recipe.description}</div>
+    </div>
 
-  const addInstruction = () => {
-    setNewRecipe(prev => ({
-      ...prev,
-      instructions: [...prev.instructions, '']
-    }));
-  };
+    <div class="info-grid">
+        <div class="info-card">
+            <div class="info-title">Difficulty</div>
+            <div class="info-value">${recipe.difficulty}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-title">Total Time</div>
+            <div class="info-value">${recipe.time}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-title">pH Level</div>
+            <div class="info-value">${recipe.pH}</div>
+        </div>
+        <div class="info-card">
+            <div class="info-title">Color Result</div>
+            <div class="info-value">
+                <div>
+                    <span class="color-swatch" style="background-color: ${recipe.colorHex};"></span>
+                </div>
+                <div style="margin-top: 5px; font-size: 10px;">${recipe.colorHex}</div>
+            </div>
+        </div>
+    </div>
 
-  const addSafetyNote = () => {
-    setNewRecipe(prev => ({
-      ...prev,
-      safetyNotes: [...prev.safetyNotes, '']
-    }));
-  };
+    <div class="section">
+        <div class="section-title">
+            <span class="section-icon">📋</span>
+            Materials & Ingredients
+        </div>
+        <div class="materials-grid">
+            <div class="materials-column">
+                ${recipe.materials.slice(0, Math.ceil(recipe.materials.length / 2)).map(material => 
+                    `<div class="material-item">
+                        <span class="material-name">${material.item}</span>
+                        <span class="material-amount">${material.amount}</span>
+                    </div>`
+                ).join('')}
+            </div>
+            <div class="materials-column">
+                ${recipe.materials.slice(Math.ceil(recipe.materials.length / 2)).map(material => 
+                    `<div class="material-item">
+                        <span class="material-name">${material.item}</span>
+                        <span class="material-amount">${material.amount}</span>
+                    </div>`
+                ).join('')}
+            </div>
+        </div>
+    </div>
 
-  const addTip = () => {
-    setNewRecipe(prev => ({
-      ...prev,
-      tips: [...prev.tips, '']
-    }));
-  };
+    <div class="section">
+        <div class="section-title">
+            <span class="section-icon">👩‍🍳</span>
+            Step-by-Step Instructions
+        </div>
+        <div class="instructions">
+            <ol>
+                ${recipe.instructions.map(instruction => `<li>${instruction}</li>`).join('')}
+            </ol>
+        </div>
+    </div>
 
-  const handleSubmit = () => {
-    const recipe = {
-      ...newRecipe,
-      id: recipes.length + 1,
-      materials: newRecipe.materials.filter(m => m.item && m.amount),
-      instructions: newRecipe.instructions.filter(i => i.trim()),
-      safetyNotes: newRecipe.safetyNotes.filter(n => n.trim()),
-      tips: newRecipe.tips.filter(t => t.trim())
-    };
-    setRecipes([...recipes, recipe]);
-    setNewRecipe({
-      name: '',
-      category: 'roots',
-      difficulty: 'Beginner',
-      time: '',
-      pH: '',
-      colorHex: '#F4A623',
-      description: '',
-      materials: [{ item: '', amount: '' }],
-      instructions: [''],
-      safetyNotes: [''],
-      tips: ['']
-    });
-    setShowAddForm(false);
+    <div class="two-column">
+        <div class="section">
+            <div class="section-title">
+                <span class="section-icon">⚠️</span>
+                Safety Guidelines
+            </div>
+            <div class="safety">
+                ${recipe.safetyNotes.map(note => 
+                    `<div class="warning-item">
+                        <span class="warning-icon">⚠️</span>
+                        <span>${note}</span>
+                    </div>`
+                ).join('')}
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span class="section-icon">💡</span>
+                Tips & Variations
+            </div>
+            <div class="tips">
+                ${recipe.tips.map(tip => 
+                    `<div class="tip-item">
+                        <span class="tip-icon">💡</span>
+                        <span>${tip}</span>
+                    </div>`
+                ).join('')}
+            </div>
+        </div>
+    </div>
+
+    ${notes ? `
+    <div class="section">
+        <div class="section-title">
+            <span class="section-icon">📝</span>
+            Personal Notes & Observations
+        </div>
+        <div class="notes">
+            <div class="notes-content">${notes}</div>
+        </div>
+    </div>
+    ` : ''}
+
+    <div class="footer">
+        <p><strong>DYARY - Natural Dye Recipe Journal</strong></p>
+        <p>Generated on ${new Date().toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}</p>
+        <p>Keep experimenting and documenting your natural dye journey!</p>
+    </div>
+</body>
+</html>`;
+
+      // Create a blob with the HTML content
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${recipe.name.replace(/[^a-zA-Z0-9]/g, '_')}_recipe.html`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      // Show success message
+      setTimeout(() => {
+        alert('Recipe downloaded as HTML file! Open it in your browser and use Ctrl+P (Cmd+P on Mac) to print or save as PDF.');
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Sorry, there was an error generating the PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const RecipeCard = ({ recipe }) => (
     <div 
-      className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow border border-amber-100"
+      className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 border border-amber-100 hover:border-amber-200 transform hover:-translate-y-1"
       onClick={() => setSelectedRecipe(recipe)}
     >
-      <div className="h-4" style={{ backgroundColor: recipe.colorHex }}></div>
+      <div className="h-3" style={{ backgroundColor: recipe.colorHex }}></div>
       <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold text-amber-900">{recipe.name}</h3>
-          <span className={`text-xs px-2 py-1 rounded-full ${difficultyColors[recipe.difficulty]}`}>
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="text-lg font-semibold text-amber-900 leading-tight">{recipe.name}</h3>
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${difficultyColors[recipe.difficulty]} flex-shrink-0 ml-2`}>
             {recipe.difficulty}
           </span>
         </div>
-        <p className="text-amber-700 text-sm mb-3">{recipe.description}</p>
-        <div className="flex justify-between text-xs text-amber-600">
+        <p className="text-amber-700 text-sm mb-4 line-clamp-2">{recipe.description}</p>
+        <div className="flex justify-between items-center text-xs text-amber-600">
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {recipe.time}
+            <span>{recipe.time}</span>
           </div>
           <div className="flex items-center gap-1">
             <Droplets className="w-3 h-3" />
-            pH {recipe.pH}
+            <span>pH {recipe.pH}</span>
           </div>
         </div>
       </div>
@@ -606,12 +941,26 @@ const NaturalDyeJournal = () => {
             <h1 className="text-2xl font-bold text-amber-900 mb-2">{recipe.name}</h1>
             <p className="text-amber-700">{recipe.description}</p>
           </div>
-          <button
-            onClick={() => setSelectedRecipe(null)}
-            className="text-amber-600 hover:text-amber-800 font-medium"
-          >
-            ← Back to Recipes
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => downloadPDF(recipe)}
+              disabled={isGeneratingPDF}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                isGeneratingPDF 
+                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                  : 'bg-amber-600 text-white hover:bg-amber-700'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              {isGeneratingPDF ? 'Generating...' : 'Download Recipe'}
+            </button>
+            <button
+              onClick={() => setSelectedRecipe(null)}
+              className="text-amber-600 hover:text-amber-800 font-medium px-4 py-2"
+            >
+              ← Back to Recipes
+            </button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4 mb-6">
@@ -696,249 +1045,13 @@ const NaturalDyeJournal = () => {
             </ul>
           </div>
         </div>
-      </div>
-    </div>
-  );
 
-  const AddRecipeForm = () => (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-amber-900">Add New Recipe</h1>
-        <button
-          onClick={() => setShowAddForm(false)}
-          className="text-amber-600 hover:text-amber-800 font-medium"
-        >
-          Cancel
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Recipe Name</label>
-            <input
-              type="text"
-              required
-              value={newRecipe.name}
-              onChange={(e) => setNewRecipe({...newRecipe, name: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Category</label>
-            <select
-              value={newRecipe.category}
-              onChange={(e) => setNewRecipe({...newRecipe, category: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            >
-              {categories.slice(1).map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Difficulty</label>
-            <select
-              value={newRecipe.difficulty}
-              onChange={(e) => setNewRecipe({...newRecipe, difficulty: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            >
-              <option value="Beginner">Beginner</option>
-              <option value="Intermediate">Intermediate</option>
-              <option value="Advanced">Advanced</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Time Required</label>
-            <input
-              type="text"
-              placeholder="e.g., 2-3 hours"
-              value={newRecipe.time}
-              onChange={(e) => setNewRecipe({...newRecipe, time: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">pH Level</label>
-            <input
-              type="text"
-              placeholder="e.g., 7-8"
-              value={newRecipe.pH}
-              onChange={(e) => setNewRecipe({...newRecipe, pH: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Description</label>
-            <textarea
-              required
-              rows="3"
-              value={newRecipe.description}
-              onChange={(e) => setNewRecipe({...newRecipe, description: e.target.value})}
-              className="w-full p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-1">Color Result</label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="color"
-                value={newRecipe.colorHex}
-                onChange={(e) => setNewRecipe({...newRecipe, colorHex: e.target.value})}
-                className="w-12 h-10 border border-amber-200 rounded cursor-pointer"
-              />
-              <input
-                type="text"
-                value={newRecipe.colorHex}
-                onChange={(e) => setNewRecipe({...newRecipe, colorHex: e.target.value})}
-                className="flex-1 p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-amber-900 mb-2">Materials</label>
-          {newRecipe.materials.map((material, index) => (
-            <div key={index} className="flex gap-2 mb-2">
-              <input
-                type="text"
-                placeholder="Material name"
-                value={material.item}
-                onChange={(e) => {
-                  const materials = [...newRecipe.materials];
-                  materials[index].item = e.target.value;
-                  setNewRecipe({...newRecipe, materials});
-                }}
-                className="flex-1 p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-              <input
-                type="text"
-                placeholder="Amount"
-                value={material.amount}
-                onChange={(e) => {
-                  const materials = [...newRecipe.materials];
-                  materials[index].amount = e.target.value;
-                  setNewRecipe({...newRecipe, materials});
-                }}
-                className="w-32 p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-              {newRecipe.materials.length > 1 && (
-                <button
-                  onClick={() => removeMaterial(index)}
-                  className="text-red-600 hover:text-red-800 px-2"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            onClick={addMaterial}
-            className="text-amber-600 hover:text-amber-800 text-sm font-medium"
-          >
-            + Add Material
-          </button>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-amber-900 mb-2">Instructions</label>
-          {newRecipe.instructions.map((instruction, index) => (
-            <div key={index} className="flex gap-2 mb-2">
-              <span className="bg-amber-200 text-amber-800 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0 mt-1">
-                {index + 1}
-              </span>
-              <textarea
-                rows="2"
-                placeholder="Step description"
-                value={instruction}
-                onChange={(e) => {
-                  const instructions = [...newRecipe.instructions];
-                  instructions[index] = e.target.value;
-                  setNewRecipe({...newRecipe, instructions});
-                }}
-                className="flex-1 p-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-            </div>
-          ))}
-          <button
-            onClick={addInstruction}
-            className="text-amber-600 hover:text-amber-800 text-sm font-medium"
-          >
-            + Add Step
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-2">Safety Notes</label>
-            {newRecipe.safetyNotes.map((note, index) => (
-              <textarea
-                key={index}
-                rows="2"
-                placeholder="Safety note"
-                value={note}
-                onChange={(e) => {
-                  const safetyNotes = [...newRecipe.safetyNotes];
-                  safetyNotes[index] = e.target.value;
-                  setNewRecipe({...newRecipe, safetyNotes});
-                }}
-                className="w-full p-2 mb-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-            ))}
-            <button
-              onClick={addSafetyNote}
-              className="text-amber-600 hover:text-amber-800 text-sm font-medium"
-            >
-              + Add Safety Note
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-amber-900 mb-2">Tips & Variations</label>
-            {newRecipe.tips.map((tip, index) => (
-              <textarea
-                key={index}
-                rows="2"
-                placeholder="Tip or variation"
-                value={tip}
-                onChange={(e) => {
-                  const tips = [...newRecipe.tips];
-                  tips[index] = e.target.value;
-                  setNewRecipe({...newRecipe, tips});
-                }}
-                className="w-full p-2 mb-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-            ))}
-            <button
-              onClick={addTip}
-              className="text-amber-600 hover:text-amber-800 text-sm font-medium"
-            >
-              + Add Tip
-            </button>
-          </div>
-        </div>
-
-        <div className="flex gap-4 pt-4">
-          <button
-            onClick={handleSubmit}
-            className="bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 font-medium"
-          >
-            Save Recipe
-          </button>
-          <button
-            onClick={() => setShowAddForm(false)}
-            className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 font-medium"
-          >
-            Cancel
-          </button>
-        </div>
+        <NotesSection 
+          recipe={recipe} 
+          savedNotes={savedNotes}
+          onSaveNotes={handleSaveNotes}
+          onDownloadPDF={downloadPDF}
+        />
       </div>
     </div>
   );
@@ -947,23 +1060,13 @@ const NaturalDyeJournal = () => {
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">
       <header className="bg-gradient-to-r from-amber-800 to-orange-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">DYARY</h1>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Recipe
-            </button>
-          </div>
+          <h1 className="text-2xl font-bold">DYARY</h1>
+          <p className="text-amber-100 text-sm">Natural Dye Recipe Journal</p>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {showAddForm ? (
-          <AddRecipeForm />
-        ) : selectedRecipe ? (
+        {selectedRecipe ? (
           <RecipeDetail recipe={selectedRecipe} />
         ) : (
           <div>
@@ -974,7 +1077,7 @@ const NaturalDyeJournal = () => {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-400 w-5 h-5" />
                     <input
                       type="text"
-                      placeholder="Search recipes..."
+                      placeholder="Search recipes by name or ingredient..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -994,76 +1097,14 @@ const NaturalDyeJournal = () => {
                       ))}
                     </select>
                   </div>
-                  <button
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    className="flex items-center gap-2 px-4 py-2 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
-                  >
-                    <Palette className="w-4 h-4 text-amber-600" />
-                    Color Search
-                    {showAdvancedFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
                 </div>
-
-                {showAdvancedFilters && (
-                  <div className="border-t border-amber-100 pt-4">
-                    <div className="flex flex-col gap-3">
-                      <label className="text-sm font-medium text-amber-900">Find recipes by color:</label>
-                      <div className="flex flex-wrap gap-3 items-center">
-                        {colorPalette.map(color => (
-                          <button
-                            key={color.name}
-                            onClick={() => setColorSearch(colorSearch === color.hex ? '' : color.hex)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${
-                              colorSearch === color.hex 
-                                ? 'border-amber-500 bg-amber-50' 
-                                : 'border-amber-200 hover:border-amber-300'
-                            }`}
-                          >
-                            <div 
-                              className="w-5 h-5 rounded-full border border-gray-300"
-                              style={{ backgroundColor: color.hex }}
-                            ></div>
-                            <span className="text-sm text-amber-800">{color.name}</span>
-                          </button>
-                        ))}
-                        
-                        <div className="flex items-center gap-2 px-3 py-2 border-2 border-amber-200 rounded-lg">
-                          <input
-                            type="color"
-                            value={colorSearch || '#F4A623'}
-                            onChange={(e) => setColorSearch(e.target.value)}
-                            className="w-5 h-5 rounded border-0 cursor-pointer"
-                          />
-                          <span className="text-sm text-amber-800">Custom</span>
-                        </div>
-                        
-                        {colorSearch && (
-                          <button
-                            onClick={() => setColorSearch('')}
-                            className="px-3 py-2 text-sm text-amber-600 hover:text-amber-800 underline"
-                          >
-                            Clear color filter
-                          </button>
-                        )}
-                      </div>
-                      
-                      {colorSearch && (
-                        <div className="flex items-center gap-2 text-sm text-amber-700">
-                          <span>Searching for colors similar to:</span>
-                          <div 
-                            className="w-6 h-6 rounded-full border border-gray-300"
-                            style={{ backgroundColor: colorSearch }}
-                          ></div>
-                          <span className="font-mono">{colorSearch}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div className="text-sm text-amber-600">
+                  Showing {filteredRecipes.length} of {recipes.length} recipes
+                </div>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
               {filteredRecipes.map(recipe => (
                 <RecipeCard key={recipe.id} recipe={recipe} />
               ))}
@@ -1071,13 +1112,11 @@ const NaturalDyeJournal = () => {
 
             {filteredRecipes.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-amber-600 text-lg">No recipes found matching your criteria.</p>
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="mt-4 text-amber-700 hover:text-amber-900 font-medium"
-                >
-                  Add the first recipe →
-                </button>
+                <div className="text-amber-400 mb-4">
+                  <Search className="w-16 h-16 mx-auto" />
+                </div>
+                <p className="text-amber-600 text-lg mb-2">No recipes found</p>
+                <p className="text-amber-500 text-sm">Try adjusting your search terms or category filter</p>
               </div>
             )}
           </div>
