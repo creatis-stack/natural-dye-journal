@@ -1061,7 +1061,7 @@ const NaturalDyeJournal = () => {
       <header className="bg-gradient-to-r from-amber-800 to-orange-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold">DYARY</h1>
-          <p className="text-amber-100 text-sm">Natural Dye Recipe Journal</p>
+          <p className="text-amber-100 text-sm">Natural Dye Recipe Journal v.08/25</p>
         </div>
       </header>
 
